@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS projects (
   name VARCHAR(255) NOT NULL,
   client_name VARCHAR(255) NOT NULL,
   client_phone VARCHAR(50) NOT NULL,
+  client_email TEXT,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
