@@ -22,6 +22,7 @@ import {
   getProjectDocuments,
   createDocument,
   updateDocumentStatus,
+  deleteDocument,
 } from "@/lib/projects";
 import type { Project, Document } from "@/lib/supabase/client";
 
@@ -149,6 +150,31 @@ export default function ProjectPage() {
     if (contractDocument) {
       setDocuments((prev) => [contractDocument, ...prev]);
       console.log("[v0] Contract created successfully");
+    }
+  };
+
+  const handleDeleteDocument = async (
+    documentId: string,
+    documentName: string,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+
+    if (
+      !confirm(`Вы уверены, что хотите удалить документ "${documentName}"?`)
+    ) {
+      return;
+    }
+
+    try {
+      const success = await deleteDocument(documentId);
+      if (success) {
+        setDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+      } else {
+        alert("Не удалось удалить документ. Попробуйте ещё раз.");
+      }
+    } catch (error) {
+      alert("Произошла ошибка при удалении документа.");
     }
   };
 
@@ -472,6 +498,16 @@ export default function ProjectPage() {
                         onClick={() => handleDocumentClick(document.id)}
                       >
                         Просмотр
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) =>
+                          handleDeleteDocument(document.id, document.name, e)
+                        }
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-700"
+                      >
+                        Удалить
                       </Button>
                     </div>
                   </div>
