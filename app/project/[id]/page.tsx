@@ -400,7 +400,7 @@ export default function ProjectPage() {
                 Договоры, приложения и акты по этапам
               </p>
             </div>
-            <div className="flex md:lg:gap-2 flex-col">
+            <div className="flex lg:gap-2 lg:flex-row flex-col">
               <CreateContractDialog
                 projectData={{
                   name: project.name,
@@ -446,7 +446,7 @@ export default function ProjectPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center lg:md:gap-3 flex-col">
+                    <div className="flex items-center lg:flex-row lg:gap-3 flex-col">
                       {getStatusBadge(document.status)}
                       {document.status === "draft" && (
                         <SendForSigningDialog

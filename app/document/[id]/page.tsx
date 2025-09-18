@@ -154,32 +154,39 @@ export default function DocumentViewPage() {
                 className="mr-4"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Назад к проекту
+                <span className="md:inline hidden">Назад к проекту</span>
               </Button>
               <h1 className="text-2xl font-bold text-gray-900">ALLUNA</h1>
             </div>
-            <div className="flex items-center md:lg:space-x-2 flex-col">
+            <div className="flex items-center md:flex-row md:space-x-2 flex-col">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleShare}
-                className="relative bg-transparent"
+                className="relative bg-transparent md:min-w-auto min-w-[120px]"
               >
                 {copied ? (
                   <>
-                    <Check className="h-4 w-4 mr-2 text-green-600" />
-                    Скопировано!
+                    <Check className="h-4 w-4 md:mr-2 text-green-600" />
+                    <span className="hidden md:inline">Скопировано!</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Скопировать ссылку
+                    <Copy className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Скопировать ссылку</span>
                   </>
                 )}
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                {document.file_url ? "Открыть документ" : "Скачать PDF"}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                className="md:min-w-auto min-w-[120px]"
+              >
+                <ExternalLink className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">
+                  {document.file_url ? "Открыть документ" : "Скачать PDF"}
+                </span>
               </Button>
             </div>
             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
@@ -301,7 +308,7 @@ export default function DocumentViewPage() {
                 </div>
               )}
 
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-4 md:flex-row flex-col">
                 <Button onClick={handleDownload}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Открыть документ
