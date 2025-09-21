@@ -182,7 +182,7 @@ export default function HomePage() {
 										</div>
 										<button
 											onClick={(e) => handleDeleteProject(project.id, project.name, e)}
-											className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded"
+											className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded"
 											title="Удалить проект"
 										>
 											<Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />

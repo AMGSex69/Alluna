@@ -35,12 +35,12 @@ npm install
 
 ```env
 # OkiDoki API Configuration для электронного подписания  
-OKIDOKI_BASE_URL=api.doki.online
-OKIDOKI_API_KEY=67gZSOPuU6ahC5h3ZFTlICsjj1sBuMW-
+OKIDOKI_BASE_URL=<okidoki_api_base_url>
+OKIDOKI_API_KEY=<okidoki_api_key>
 
 # Environment variables for Next.js (client-side access)
-NEXT_PUBLIC_OKIDOKI_BASE_URL=api.doki.online
-NEXT_PUBLIC_OKIDOKI_API_KEY=67gZSOPuU6ahC5h3ZFTlICsjj1sBuMW-
+NEXT_PUBLIC_OKIDOKI_BASE_URL=<optional_public_base_url>
+NEXT_PUBLIC_OKIDOKI_API_KEY=<never_set_api_key_here>
 
 # Use mock data instead of Supabase (set to 'false' to use Supabase)
 NEXT_PUBLIC_USE_MOCK_DATA=true

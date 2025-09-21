@@ -230,11 +230,11 @@ class OkiDokiAPI {
 	}
 }
 
-// Initialize OkiDoki API client
-const baseUrl = process.env.NEXT_PUBLIC_OKIDOKI_BASE_URL || "api.doki.online"
+// Initialize OkiDoki API client (client-safe; do not expose secrets)
+const publicBaseUrl = process.env.NEXT_PUBLIC_OKIDOKI_BASE_URL || ""
 const okiDokiAPI = new OkiDokiAPI({
-	apiKey: process.env.NEXT_PUBLIC_OKIDOKI_API_KEY || "67gZSOPuU6ahC5h3ZFTlICsjj1sBuMW-",
-	baseUrl: baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`,
+	apiKey: "", // never expose API key in client
+	baseUrl: publicBaseUrl ? (publicBaseUrl.startsWith('http') ? publicBaseUrl : `https://${publicBaseUrl}`) : "",
 })
 
 export {

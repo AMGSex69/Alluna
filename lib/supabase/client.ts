@@ -1,9 +1,24 @@
 import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true'
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+let supabase: any = null
+
+if (!USE_MOCK_DATA) {
+	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+	const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+	if (supabaseUrl && supabaseAnonKey) {
+		supabase = createClient(supabaseUrl, supabaseAnonKey)
+	} else {
+		// When not in mock mode, enforce presence of Supabase env vars
+		throw new Error(
+			"Supabase environment variables are not set. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+		)
+	}
+}
+
+export { supabase }
 
 export type Project = {
 	id: string

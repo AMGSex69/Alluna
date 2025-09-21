@@ -14,8 +14,15 @@ export async function POST(request: NextRequest) {
 			)
 		}
 
-		const baseUrl = process.env.OKIDOKI_BASE_URL || 'api.doki.online'
-		const apiKey = process.env.OKIDOKI_API_KEY || '67gZSOPuU6ahC5h3ZFTlICsjj1sBuMW-'
+		const baseUrl = process.env.OKIDOKI_BASE_URL
+		const apiKey = process.env.OKIDOKI_API_KEY
+
+		if (!baseUrl || !apiKey) {
+			return NextResponse.json(
+				{ error: 'Server configuration error: OKIDOKI_BASE_URL and OKIDOKI_API_KEY must be set' },
+				{ status: 500 }
+			)
+		}
 		const fullUrl = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`
 
 		// Create contract with HTML body for better email presentation

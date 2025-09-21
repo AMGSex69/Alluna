@@ -60,12 +60,12 @@
 ### 1. Создайте `.env.local` файл:
 ```env
 # OkiDoki API Configuration
-OKIDOKI_BASE_URL=api.doki.online
-OKIDOKI_API_KEY=67gZSOPuU6ahC5h3ZFTlICsjj1sBuMW-
+OKIDOKI_BASE_URL=<okidoki_api_base_url>
+OKIDOKI_API_KEY=<okidoki_api_key>
 
 # Next.js Environment Variables
-NEXT_PUBLIC_OKIDOKI_BASE_URL=api.doki.online
-NEXT_PUBLIC_OKIDOKI_API_KEY=67gZSOPuU6ahC5h3ZFTlICsjj1sBuMW-
+NEXT_PUBLIC_OKIDOKI_BASE_URL=<optional_public_base_url>
+NEXT_PUBLIC_OKIDOKI_API_KEY=<never_set_api_key_here>
 
 # Use mock data (set to 'false' for Supabase)
 NEXT_PUBLIC_USE_MOCK_DATA=true
