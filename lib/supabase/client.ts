@@ -21,24 +21,24 @@ if (!USE_MOCK_DATA) {
 export { supabase }
 
 export type Project = {
-	id: string
-	name: string
-	client_name: string
-	client_phone: string
-	client_email?: string
-	description?: string
-	created_at: string
-	updated_at: string
-}
+  id: string;
+  name: string;
+  client_name: string;
+  client_phone: string;
+  client_email?: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+};
 
 export type Document = {
-	id: string
-	project_id: string
-	name: string
-	type: "contract" | "act" | "appendix" | "agreement"
-	status: "draft" | "pending_signature" | "signed"
-	file_url?: string
-	content?: string
-	created_at: string
-	updated_at: string
-}
+  id: string;
+  project_id: string;
+  name: string;
+  type: "contract" | "act" | "appendix" | "agreement";
+  status: "draft" | "pending_signature" | "signed";
+  file_url?: string;
+  content?: string;
+  created_at: string;
+  updated_at: string;
+};
