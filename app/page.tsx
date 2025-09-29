@@ -13,13 +13,22 @@ import {
 } from "@/components/ui/card";
 import { FileText, Home, AlertCircle, Trash2 } from "lucide-react";
 import { CreateProjectDialog } from "@/components/create-project-dialog";
-import { getProjects, createProject, deleteProject } from "@/lib/projects";
-import type { Project } from "@/lib/supabase/client";
+import {
+  getProjects,
+  createProject,
+  deleteProject,
+  getDocumentsCountForAllProjects,
+} from "@/lib/projects";
+import type { Project, Document } from "@/lib/supabase/client";
 
 export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [documentsCount, setDocumentsCount] = useState<Record<string, number>>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState(false);
+  const [projectsError, setProjectsError] = useState(false);
+  const [documentsError, setDocumentsError] = useState(false);
   const router = useRouter();
   const useMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
@@ -29,14 +38,37 @@ export default function HomePage() {
 
   const loadProjects = async () => {
     try {
+      setLoading(true);
       console.log("[v0] Loading projects from database...");
       const projectsData = await getProjects();
       console.log("[v0] Projects loaded:", projectsData.length);
+
       setProjects(projectsData);
-      setDbError(false);
+      setProjectsError(false);
+
+      // Загружаем количество документов отдельно
+      try {
+        console.log("[v0] Loading documents count...");
+        const counts = await getDocumentsCountForAllProjects();
+        console.log(
+          "[v0] Documents counts loaded:",
+          Object.keys(counts).length
+        );
+        setDocumentsCount(counts);
+        setDocumentsError(false);
+      } catch (docError) {
+        console.error("[v0] Error loading documents count:", docError);
+        setDocumentsError(true);
+        // Устанавливаем 0 документов для всех проектов при ошибке
+        const emptyCounts: Record<string, number> = {};
+        projectsData.forEach((project) => {
+          emptyCounts[project.id] = 0;
+        });
+        setDocumentsCount(emptyCounts);
+      }
     } catch (error) {
       console.error("[v0] Error loading projects:", error);
-      setDbError(true);
+      setProjectsError(true);
     } finally {
       setLoading(false);
     }
@@ -62,14 +94,19 @@ export default function HomePage() {
       if (newProject) {
         console.log("[v0] Project created successfully:", newProject.id);
         setProjects((prev) => [newProject, ...prev]);
-        setDbError(false);
+        // Новый проект имеет 0 документов
+        setDocumentsCount((prev) => ({
+          ...prev,
+          [newProject.id]: 0,
+        }));
+        setProjectsError(false);
       } else {
         console.log("[v0] Failed to create project - database not ready");
-        setDbError(true);
+        setProjectsError(true);
       }
     } catch (error) {
       console.error("[v0] Error creating project:", error);
-      setDbError(true);
+      setProjectsError(true);
     }
   };
 
@@ -96,6 +133,11 @@ export default function HomePage() {
         if (success) {
           console.log("[v0] Project deleted successfully");
           setProjects((prev) => prev.filter((p) => p.id !== projectId));
+          setDocumentsCount((prev) => {
+            const newCounts = { ...prev };
+            delete newCounts[projectId];
+            return newCounts;
+          });
         } else {
           console.log("[v0] Failed to delete project");
           alert("Не удалось удалить проект. Попробуйте еще раз.");
@@ -105,6 +147,10 @@ export default function HomePage() {
         alert("Произошла ошибка при удалении проекта.");
       }
     }
+  };
+
+  const getProjectDocumentsCount = (projectId: string): number => {
+    return documentsCount[projectId] || 0;
   };
 
   if (loading) {
@@ -159,7 +205,7 @@ export default function HomePage() {
       )}
 
       {/* Database Setup Warning */}
-      {!useMockData && dbError && (
+      {!useMockData && projectsError && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mx-4 mt-4 rounded">
           <div className="flex">
             <AlertCircle className="h-5 w-5 text-yellow-400" />
@@ -221,7 +267,9 @@ export default function HomePage() {
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     <div className="flex items-center gap-1">
                       <FileText className="h-4 w-4" />
-                      <span>0 документов</span>
+                      <span>
+                        {getProjectDocumentsCount(project.id)} документов
+                      </span>
                     </div>
                     <span>
                       Создан:{" "}
