@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
+import { AuthProvider } from "@/components/auth-provider"
 
 export const metadata: Metadata = {
   title: "ALLUNA - Управление дизайн-проектами",
@@ -26,7 +27,11 @@ html {
 }
         `}</style>
       </head>
-      <body>{children}</body>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans`}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }
