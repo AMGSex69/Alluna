@@ -176,18 +176,15 @@ export async function getProjectDocuments(
 export async function createDocument(documentData: {
   project_id: string;
   name: string;
-  type: "contract" | "act" | "attachment" | "agreement" | "invoice" | "other";
-  status?: "draft" | "pending_signature" | "signed";
-  file_url?: string;
+  type: string;
+  status?: string;
+  file_url?: string | null;
   content?: string;
+  podpislon_id?: string | null;
+  sign_url?: mstring | null;
 }): Promise<Document | null> {
   if (USE_MOCK_DATA) {
-    return mockModule.createDocument({
-      project_id: documentData.project_id,
-      name: documentData.name,
-      type: documentData.type,
-      file_url: documentData.file_url,
-    });
+    return mockModule.createDocument(documentData);
   }
 
   try {
@@ -195,8 +192,19 @@ export async function createDocument(documentData: {
 
     const { data, error } = await supabaseModule.supabase
       .from("documents")
-      .insert([documentData])
-      .select()
+      .insert({
+        project_id: documentData.project_id,
+        name: documentData.name,
+        type: documentData.type,
+        status: documentData.status || "draft",
+        file_url: documentData.file_url || null,
+        content: documentData.content || null,
+        podpislon_id: documentData.podpislon_id || null,
+        sign_url: documentData.sign_url || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("*")
       .single();
 
     if (error) {
@@ -204,7 +212,7 @@ export async function createDocument(documentData: {
       return null;
     }
 
-    return data;
+    return data as Document;
   } catch (error) {
     console.error("Error creating document:", error);
     return null;
@@ -237,30 +245,59 @@ export async function getDocument(id: string): Promise<Document | null> {
 
 export async function updateDocumentStatus(
   documentId: string,
-  status: "draft" | "pending_signature" | "signed"
-): Promise<boolean> {
-  if (USE_MOCK_DATA) {
-    return mockModule.updateDocumentStatus(documentId, status);
+  status: string,
+  additionalData?: {
+    podpislon_id?: string;
+    sign_url?: string;
+    status_message?: string;
+    signed_at?: string;
   }
-
+): Promise<Document | null> {
   try {
-    const { error } = await supabaseModule.supabase
-      .from("documents")
-      .update({
-        status,
-        signed_at: status === "signed" ? new Date().toISOString() : null,
-      })
-      .eq("id", documentId);
+    console.log("[updateDocumentStatus] Updating document:", {
+      documentId,
+      status,
+      additionalData,
+    });
 
-    if (error) {
-      console.error("Error updating document status:", error);
-      return false;
+    const updateData: any = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (additionalData?.podpislon_id) {
+      updateData.podpislon_id = additionalData.podpislon_id;
     }
 
-    return true;
+    if (additionalData?.sign_url) {
+      updateData.sign_url = additionalData.sign_url;
+    }
+
+    if (additionalData?.status_message) {
+      updateData.status_message = additionalData.status_message;
+    }
+
+    if (additionalData.signed_at) {
+      updateData.signed_at = additionalData.signed_at;
+    }
+
+    const { data, error } = await supabaseModule.supabase
+      .from("documents")
+      .update(updateData)
+      .eq("id", documentId)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("[updateDocumentStatus] Supabase error:", error);
+      return null;
+    }
+
+    console.log("[updateDocumentStatus] Document updated successfully:", data);
+    return data as Document;
   } catch (error) {
-    console.error("Error updating document status:", error);
-    return false;
+    console.error("[updateDocumentStatus] Unexpected error:", error);
+    return null;
   }
 }
 

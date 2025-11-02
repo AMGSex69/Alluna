@@ -1,14 +1,14 @@
-import { createClient } from "@supabase/supabase-js"
-import { type User as SupabaseUser } from '@supabase/supabase-js'
+import { createClient } from "@supabase/supabase-js";
+import { type User as SupabaseUser } from "@supabase/supabase-js";
 import { SupabaseAuthClient } from "@supabase/supabase-js/dist/module/lib/SupabaseAuthClient";
 
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true'
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
 // Создаем клиент Supabase
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+);
 
 export type Project = {
   id: string;
@@ -25,12 +25,16 @@ export type Document = {
   id: string;
   project_id: string;
   name: string;
-  type: "contract" | "act" | "appendix" | "agreement";
+  type: "contract" | "act" | "appendix" | "agreement" | "invoice" | "other";
   status: "draft" | "pending_signature" | "signed";
   file_url?: string;
   content?: string;
   created_at: string;
   updated_at: string;
+  podpislon_id?: string | null;
+  sign_url?: string | null;
+  signed_at?: string | null;
+  status_message?: string | null;
 };
 
 // Auth types
