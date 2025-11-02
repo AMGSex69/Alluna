@@ -246,7 +246,7 @@ function HomeContent() {
 											onClick={e =>
 												handleDeleteProject(project.id, project.name, e)
 											}
-											className='text-gray-400 hover:text-red-600 hover:bg-red-50'
+											className='text-gray-400 cursor-pointer hover:text-red-600 hover:bg-red-50'
 											title='Удалить проект'
 										>
 											<Trash2 className='h-4 w-4' />
