@@ -13,6 +13,7 @@ import {
 	CheckCircle,
 	Loader2,
 	ExternalLink,
+	Mail,
 } from 'lucide-react'
 import { CreateContractDialog } from '@/components/create-contract-dialog'
 import { SendForSigningDialog } from '@/components/send-for-signing-dialog'
@@ -183,50 +184,65 @@ export default function ProjectPage() {
 		}
 	}
 
-	/* -------- старый флоу email-отправки для draft -------- */
-	const handleSendForSigning = async (
-		documentId: string,
-		phone: string,
-		email?: string
-	) => {
-		if (!email) {
-			alert('Email обязателен для отправки документа на подписание')
-			return
-		}
-		try {
-			const doc = documents.find(d => d.id === documentId)
-			if (!doc || !project) return
+	/* -------- НОВЫЙ ФЛОУ: Отправка на подписание через Podpislon -------- */
+	const handleSendForSigning = async (data: {
+  document_id: string
+  document_name: string
+  signer: {
+    name: string
+    email: string
+    phone: string
+  }
+  file_data: string // base64 PDF
+}) => {
+  if (!project) return
 
-			const res = await fetch('/api/okidoki/send-for-signing', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					document_id: documentId,
-					document_name: doc.name,
-					document_url: doc.file_url || `/api/documents/${documentId}`,
-					signer: { name: project.client_name, phone, email },
-					metadata: { projectId: project.id, projectName: project.name },
-				}),
-			})
+  try {
+    const response = await fetch('/api/podpislon/send-for-signing', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
 
-			if (res.ok) {
-				const ok = await updateDocumentStatus(documentId, 'pending_signature')
-				if (ok) {
-					setDocuments(prev =>
-						prev.map(d =>
-							d.id === documentId ? { ...d, status: 'pending_signature' } : d
-						)
-					)
-					alert(`Документ отправлен на подпись! Email отправлен на ${email}`)
-				}
-			} else {
-				alert('Ошибка при отправке документа на подпись')
-			}
-		} catch (e) {
-			console.error('[send-for-signing] error', e)
-			alert('Произошла ошибка при отправке документа')
-		}
-	}
+    const result = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to send for signing')
+    }
+
+    // Обновляем документ в базе данных
+    const updatedDoc = await updateDocumentStatus(data.document_id, 'pending_signature', {
+      podpislon_id: result.contract_id,
+      sign_url: result.signing_url
+    })
+
+    if (updatedDoc) {
+      setDocuments(prev =>
+        prev.map(d =>
+          d.id === data.document_id 
+            ? { 
+                ...d, 
+                status: 'pending_signature',
+                podpislon_id: result.contract_id,
+                sign_url: result.signing_url
+              } 
+            : d
+        )
+      )
+    }
+
+    alert(`Документ отправлен на подпись! Ссылка для подписания: ${result.signing_url}`)
+    return result
+
+  } catch (error) {
+    console.error('[send-for-signing] error', error)
+    const errorMessage = error instanceof Error ? error.message : 'Произошла ошибка при отправке документа'
+    alert(errorMessage)
+    throw error
+  }
+}
 
 	/* -------- новый флоу: создание в Подпислоне из диалога загрузки -------- */
 	const handleUploadDocument = async (documentData: {
@@ -434,6 +450,15 @@ export default function ProjectPage() {
 										<p className='text-gray-900'>{project.client_phone}</p>
 									</div>
 								</div>
+								{project.client_email && (
+									<div>
+										<p className='text-sm font-medium text-gray-600'>Email</p>
+										<div className='flex items-center gap-2'>
+											<Mail className='h-4 w-4 text-gray-500' />
+											<p className='text-gray-900'>{project.client_email}</p>
+										</div>
+									</div>
+								)}
 							</div>
 						</CardContent>
 					</Card>
@@ -495,7 +520,13 @@ export default function ProjectPage() {
 								}}
 								onCreateContract={handleCreateContract}
 							/>
-							<UploadDocumentDialog onUploadDocument={handleUploadDocument} />
+							<UploadDocumentDialog 
+								onUploadDocument={handleUploadDocument}
+								// Добавляем данные клиента для предзаполнения
+								clientName={project.client_name}
+								clientPhone={project.client_phone}
+								clientEmail={project.client_email}
+							/>
 						</div>
 					</div>
 
@@ -547,15 +578,16 @@ export default function ProjectPage() {
 													</a>
 												)}
 
-												{/* Для draft — старый e-mail диалог */}
+												{/* Для draft — НОВЫЙ диалог отправки на подпись */}
 												{d.status === 'draft' && (
 													<SendForSigningDialog
+														documentId={d.id} // Добавляем ID документа
 														documentName={d.name}
 														clientPhone={project.client_phone}
 														clientEmail={project.client_email}
-														onSendForSigning={(phone, email) =>
-															handleSendForSigning(d.id, phone, email)
-														}
+														clientName={project.client_name} // Добавляем имя клиента
+														projectName={project.name}
+														onSendForSigning={handleSendForSigning}
 													/>
 												)}
 
