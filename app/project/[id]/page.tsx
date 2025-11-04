@@ -745,6 +745,7 @@ export default function ProjectPage() {
                             clientEmail={project.client_email}
                             clientName={project.client_name} // Добавляем имя клиента
                             projectName={project.name}
+                            documentContent={d.content}
                             onSendForSigning={handleSendForSigning}
                           />
                         )}

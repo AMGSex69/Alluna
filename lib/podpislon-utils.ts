@@ -1,5 +1,6 @@
 // lib/podpislon-utils.ts
-import { generateSimplePDF } from "./simple-pdf-generator";
+// import { generatePDFWithCyrillicFont } from "./jspdf-cyrillic-font";
+// import { generateFixedCyrillicPDF } from "./jspdf-fixed-cyrillic";
 
 export interface PDFData {
   documentName: string;
@@ -9,32 +10,41 @@ export interface PDFData {
   projectName?: string;
 }
 
-/**
- * Генерирует PDF документ для подписания
- */
 export async function generateDocumentPDF(data: PDFData): Promise<string> {
   try {
-    console.log("Generating PDF with data:", data);
-
-    // Используем simple PDF генератор
-    const pdf = await generateSimplePDF(data);
-
-    if (!pdf || !pdf.startsWith("data:application/pdf;base64,")) {
-      console.error("Invalid PDF format received:", pdf?.substring(0, 100));
-      throw new Error("PDF generation returned invalid format");
+    console.log("Generating PDF with improved Cyrillic support...");
+    
+    // Сначала пробуем HTML метод - он лучше всего поддерживает кириллицу
+    try {
+      console.log("Trying HTML method first...");
+      const { generateHTMLPDF } = await import("./html-to-pdf");
+      return await generateHTMLPDF(data);
+    } catch (htmlError) {
+      console.warn("HTML method failed, falling back to jsPDF:", htmlError);
+      
+      // Фолбэк на jsPDF с улучшенной поддержкой кириллицы
+      const { generateFixedCyrillicPDF } = await import("./jspdf-fixed-cyrillic");
+      return await generateFixedCyrillicPDF(data);
     }
-
-    console.log("PDF generated successfully, length:", pdf.length);
-    return pdf;
   } catch (error) {
-    console.error("PDF generation error:", error);
-    throw new Error(
-      `Failed to generate PDF: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
+    console.error("All PDF generation methods failed:", error);
+    
+    // Последний фолбэк - простой текст
+    try {
+      console.log("Falling back to simple text PDF...");
+      const { generateSimplePDF } = await import("./simple-pdf-generator");
+      return generateSimplePDF(data);
+    } catch (finalError) {
+      console.error("Final fallback also failed:", finalError);
+      throw new Error(
+        `Failed to generate PDF: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 }
+
 
 /**
  * Конвертирует файл в base64 data URL для отправки в API

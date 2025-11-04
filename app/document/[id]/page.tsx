@@ -19,6 +19,10 @@ import {
 import { ContractPreview } from "@/components/contract-preview";
 import { getDocument, getProject } from "@/lib/projects";
 import type { Document, Project } from "@/lib/supabase/client";
+import html2canvas from "html2canvas";
+import domtoimage from 'dom-to-image';
+import jsPDF from "jspdf";
+import React from "react";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -78,6 +82,67 @@ export default function DocumentViewPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const printRef = React.useRef(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+const handleDownloadPdf = async () => {
+  if (!document) return;
+  
+  setIsGeneratingPdf(true);
+  try {
+    if (document.file_url) {
+      window.open(document.file_url, "_blank");
+      return;
+    }
+
+    const element = printRef.current;
+    if (!element) {
+      console.error("Element for PDF generation not found");
+      return;
+    }
+
+    // Используем dom-to-image вместо html2canvas
+    const dataUrl = await domtoimage.toPng(element, {
+      quality: 0.95,
+      bgcolor: '#ffffff',
+      style: {
+        transform: 'scale(1)',
+        transformOrigin: 'top left'
+      }
+    });
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    const img = new Image();
+    img.src = dataUrl;
+    
+    await new Promise((resolve) => {
+      img.onload = resolve;
+    });
+
+    const imgWidth = img.width;
+    const imgHeight = img.height;
+    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+    const imgWidthPdf = imgWidth * ratio;
+    const imgHeightPdf = imgHeight * ratio;
+
+    pdf.addImage(dataUrl, 'PNG', 0, 0, imgWidthPdf, imgHeightPdf);
+    pdf.save(`${document.name || 'document'}.pdf`);
+
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    alert("Произошла ошибка при генерации PDF. Попробуйте еще раз.");
+  } finally {
+    setIsGeneratingPdf(false);
+  }
+}
 
   useEffect(() => {
     const loadDocument = async () => {
@@ -98,13 +163,13 @@ export default function DocumentViewPage() {
     loadDocument();
   }, [params.id]);
 
-  const handleDownload = () => {
-    if (document?.file_url) {
-      window.open(document.file_url, "_blank");
-    } else {
-      console.log("Generating PDF for document:", document?.name);
-    }
-  };
+  // const handleDownload = () => {
+  //   if (document?.file_url) {
+  //     window.open(document.file_url, "_blank");
+  //   } else {
+  //     console.log("Generating PDF for document:", document?.name);
+  //   }
+  // };
 
   const handleShare = async () => {
     const shareLink = `${window.location.origin}/document/${document?.id}`;
@@ -178,16 +243,21 @@ export default function DocumentViewPage() {
                 )}
               </Button>
               <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownload}
-                className="md:min-w-auto min-w-[120px]"
-              >
-                <ExternalLink className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">
-                  {document.file_url ? "Открыть документ" : "Скачать PDF"}
-                </span>
-              </Button>
+  variant="outline"
+  size="sm"
+  onClick={handleDownloadPdf}
+  disabled={isGeneratingPdf}
+  className="md:min-w-auto min-w-[120px]"
+>
+  {isGeneratingPdf ? (
+    <Loader2 className="h-4 w-4 md:mr-2 animate-spin" />
+  ) : (
+    <ExternalLink className="h-4 w-4 md:mr-2" />
+  )}
+  <span className="hidden md:inline">
+    {isGeneratingPdf ? "Генерация PDF..." : (document.file_url ? "Открыть документ" : "Скачать PDF")}
+  </span>
+</Button>
             </div>
             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
               <span className="text-sm font-medium text-gray-700">Д</span>
@@ -309,7 +379,7 @@ export default function DocumentViewPage() {
               )}
 
               <div className="flex justify-center gap-4 md:flex-row flex-col">
-                <Button onClick={handleDownload}>
+                <Button onClick={handleDownloadPdf}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Открыть документ
                 </Button>
@@ -332,8 +402,9 @@ export default function DocumentViewPage() {
         ) : document.type === "contract" && document.content ? (
           <ContractPreview
             contractData={JSON.parse(document.content)}
-            onDownload={handleDownload}
+            onDownload={handleDownloadPdf}
             isReadOnly={true}
+            ref={printRef}
           />
         ) : (
           <Card>
@@ -346,7 +417,7 @@ export default function DocumentViewPage() {
                 Документ "{document?.name}" готов для просмотра
               </p>
               <div className="flex justify-center gap-4">
-                <Button onClick={handleDownload}>
+                <Button onClick={handleDownloadPdf}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Открыть документ
                 </Button>
