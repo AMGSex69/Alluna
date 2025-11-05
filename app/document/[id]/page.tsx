@@ -19,7 +19,6 @@ import {
 import { ContractPreview } from "@/components/contract-preview";
 import { getDocument, getProject } from "@/lib/projects";
 import type { Document, Project } from "@/lib/supabase/client";
-import html2canvas from "html2canvas";
 import domtoimage from 'dom-to-image';
 import jsPDF from "jspdf";
 import React from "react";
@@ -85,29 +84,254 @@ export default function DocumentViewPage() {
   const printRef = React.useRef(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-const handleDownloadPdf = async () => {
-  if (!document) return;
-  
-  setIsGeneratingPdf(true);
-  try {
-    if (document.file_url) {
-      window.open(document.file_url, "_blank");
-      return;
+  const handleDownloadPdf = async () => {
+    if (!document) return;
+    
+    setIsGeneratingPdf(true);
+    try {
+      if (document.file_url) {
+        window.open(document.file_url, "_blank");
+        return;
+      }
+
+      const element = printRef.current;
+      if (!element) {
+        console.error("Element for PDF generation not found");
+        return;
+      }
+
+      console.log("Starting PDF generation with improved positioning...");
+
+      // Создаем временный контейнер с правильными стилями
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.left = '0';
+      tempContainer.style.top = '0';
+      tempContainer.style.width = '794px'; // A4 width in pixels
+      tempContainer.style.maxWidth = '794px';
+      tempContainer.style.zIndex = '-1000';
+      tempContainer.style.opacity = '0';
+      tempContainer.style.pointerEvents = 'none';
+      tempContainer.style.backgroundColor = '#ffffff';
+      tempContainer.style.padding = '0';
+      tempContainer.style.margin = '0';
+      tempContainer.style.boxSizing = 'border-box';
+      tempContainer.style.overflow = 'hidden';
+      
+      // Клонируем элемент и применяем стили для правильного позиционирования
+      const clone = element.cloneNode(true) as HTMLElement;
+      
+      // Применяем стили для правильного отображения в PDF
+      clone.style.width = '100%';
+      clone.style.maxWidth = '100%';
+      clone.style.margin = '0';
+      clone.style.padding = '0';
+      clone.style.boxSizing = 'border-box';
+      clone.style.backgroundColor = '#ffffff';
+      clone.style.transform = 'none';
+      clone.style.position = 'static';
+      
+      // Находим и стилизуем внутренние элементы для предотвращения обрезания
+      const cards = clone.querySelectorAll('.max-w-4xl, [class*="max-w-"]');
+      cards.forEach(card => {
+        const cardElement = card as HTMLElement;
+        cardElement.style.maxWidth = '100%';
+        cardElement.style.width = '100%';
+        cardElement.style.margin = '0';
+        cardElement.style.padding = '0';
+        cardElement.style.boxSizing = 'border-box';
+      });
+
+      // Стилизуем CardContent чтобы убрать лишние отступы
+      const cardContents = clone.querySelectorAll('[class*="p-"]');
+      cardContents.forEach(content => {
+        const contentElement = content as HTMLElement;
+        contentElement.style.padding = '20px';
+        contentElement.style.boxSizing = 'border-box';
+        contentElement.style.margin = '0';
+      });
+
+      // Убираем любые трансформации и смещения
+      const allElements = clone.querySelectorAll('*');
+      allElements.forEach(el => {
+        const element = el as HTMLElement;
+        element.style.transform = 'none';
+        element.style.transformOrigin = 'top left';
+        element.style.position = 'static';
+      });
+
+      tempContainer.appendChild(clone);
+      document.body.appendChild(tempContainer);
+
+      try {
+        // Ждем применения стилей
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Получаем точные размеры контента
+        const contentWidth = clone.scrollWidth;
+        const contentHeight = clone.scrollHeight;
+        
+        console.log(`Content dimensions: ${contentWidth}x${contentHeight}`);
+
+        // Генерируем PNG с правильными настройками
+        const pngDataUrl = await domtoimage.toPng(clone, {
+          quality: 0.95,
+          bgcolor: '#ffffff',
+          width: contentWidth,
+          height: contentHeight,
+          style: {
+            transform: 'none',
+            margin: '0',
+            padding: '0',
+            left: '0',
+            top: '0'
+          }
+        });
+
+        console.log("PNG generated, creating PDF with proper positioning...");
+
+        // Создаем PDF с полями
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4",
+        });
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        // Добавляем поля (отступы) - уменьшаем для большего контента
+        const margin = 15; // 15mm margins
+        const contentPdfWidth = pdfWidth - (2 * margin);
+        
+        const img = new Image();
+        img.src = pngDataUrl;
+        
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          setTimeout(() => reject(new Error("Image load timeout")), 10000);
+        });
+
+        const imgWidth = img.width;
+        const imgHeight = img.height;
+
+        // Рассчитываем соотношение с учетом полей
+        const ratio = contentPdfWidth / imgWidth;
+        const scaledHeight = imgHeight * ratio;
+
+        console.log(`PDF dimensions: ${pdfWidth}x${pdfHeight}mm, Content area: ${contentPdfWidth}mm wide`);
+        console.log(`Image scaled: ${contentPdfWidth}mm wide, ${scaledHeight}mm high`);
+
+        // Если контент помещается на одну страницу с полями
+        if (scaledHeight <= (pdfHeight - (2 * margin))) {
+          pdf.addImage(
+            pngDataUrl, 
+            'PNG', 
+            margin, 
+            margin, 
+            contentPdfWidth, 
+            scaledHeight
+          );
+          console.log("Document fits on one page with margins");
+        } else {
+          // Разбиваем на несколько страниц с полями
+          let currentPage = 0;
+          let position = 0;
+          const pageContentHeight = pdfHeight - (2 * margin);
+          
+          while (position < scaledHeight) {
+            if (currentPage > 0) {
+              pdf.addPage();
+            }
+            
+            // Вычисляем видимую часть для текущей страницы
+            const remainingHeight = scaledHeight - position;
+            const pageHeight = Math.min(pageContentHeight, remainingHeight);
+            
+            // Создаем canvas для обрезки текущей страницы
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Вычисляем область исходного изображения для текущей страницы
+            const srcY = (position / scaledHeight) * imgHeight;
+            const srcHeight = (pageHeight / scaledHeight) * imgHeight;
+            
+            canvas.width = imgWidth;
+            canvas.height = srcHeight;
+            
+            if (ctx) {
+              // Рисуем только нужную часть изображения
+              ctx.drawImage(
+                img,
+                0, srcY, imgWidth, srcHeight, // source rectangle
+                0, 0, imgWidth, srcHeight     // destination rectangle
+              );
+              
+              const pageImageData = canvas.toDataURL('image/png');
+              
+              // Добавляем обрезанное изображение на текущую страницу
+              pdf.addImage(
+                pageImageData,
+                'PNG',
+                margin,
+                margin,
+                contentPdfWidth,
+                pageHeight
+              );
+            }
+            
+            console.log(`Added page ${currentPage + 1}, position: ${position}mm, height: ${pageHeight}mm`);
+            
+            position += pageContentHeight;
+            currentPage++;
+          }
+          console.log(`Document split into ${currentPage} pages`);
+        }
+
+        const fileName = `${document.name || 'document'}.pdf`;
+        pdf.save(fileName);
+        
+        console.log("PDF successfully generated with proper positioning");
+
+      } finally {
+        // Всегда удаляем временный контейнер
+        if (document.body.contains(tempContainer)) {
+          document.body.removeChild(tempContainer);
+        }
+      }
+
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      
+      // Fallback: простая версия
+      try {
+        console.log("Trying fallback PDF generation...");
+        await handleDownloadPdfSimple();
+      } catch (fallbackError) {
+        console.error("Fallback PDF generation also failed:", fallbackError);
+        alert("Произошла ошибка при генерации PDF. Попробуйте еще раз.");
+      }
+    } finally {
+      setIsGeneratingPdf(false);
     }
+  };
+
+  // Упрощенная версия с базовыми настройками
+  const handleDownloadPdfSimple = async () => {
+    if (!document) return;
 
     const element = printRef.current;
-    if (!element) {
-      console.error("Element for PDF generation not found");
-      return;
-    }
+    if (!element) return;
 
-    // Используем dom-to-image вместо html2canvas
+    // Простая генерация без сложных манипуляций
     const dataUrl = await domtoimage.toPng(element, {
-      quality: 0.95,
+      quality: 0.9,
       bgcolor: '#ffffff',
       style: {
-        transform: 'scale(1)',
-        transformOrigin: 'top left'
+        transform: 'none',
+        margin: '0',
+        padding: '0'
       }
     });
 
@@ -117,32 +341,40 @@ const handleDownloadPdf = async () => {
       format: "a4",
     });
 
+    const imgProps = pdf.getImageProperties(dataUrl);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
 
-    const img = new Image();
-    img.src = dataUrl;
+    // Добавляем поля
+    const margin = 15;
+    const contentWidth = pdfWidth - (2 * margin);
     
-    await new Promise((resolve) => {
-      img.onload = resolve;
-    });
+    const ratio = contentWidth / imgProps.width;
+    const imgWidth = contentWidth;
+    const imgHeight = imgProps.height * ratio;
 
-    const imgWidth = img.width;
-    const imgHeight = img.height;
-    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-    const imgWidthPdf = imgWidth * ratio;
-    const imgHeightPdf = imgHeight * ratio;
+    // Разбиваем на страницы с полями
+    let heightLeft = imgHeight;
+    let position = margin;
+    let pageNumber = 1;
 
-    pdf.addImage(dataUrl, 'PNG', 0, 0, imgWidthPdf, imgHeightPdf);
-    pdf.save(`${document.name || 'document'}.pdf`);
+    // Первая страница
+    pdf.addImage(dataUrl, 'PNG', margin, position, imgWidth, imgHeight);
+    heightLeft -= (pdfHeight - (2 * margin));
 
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    alert("Произошла ошибка при генерации PDF. Попробуйте еще раз.");
-  } finally {
-    setIsGeneratingPdf(false);
-  }
-}
+    // Добавляем дополнительные страницы если нужно
+    while (heightLeft > 0) {
+      position = margin - (imgHeight - heightLeft);
+      pdf.addPage();
+      pdf.addImage(dataUrl, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= (pdfHeight - (2 * margin));
+      pageNumber++;
+    }
+
+    const fileName = `${document.name || 'document'}.pdf`;
+    pdf.save(fileName);
+    console.log(`Fallback PDF generated with ${pageNumber} pages`);
+  };
 
   useEffect(() => {
     const loadDocument = async () => {
@@ -163,20 +395,12 @@ const handleDownloadPdf = async () => {
     loadDocument();
   }, [params.id]);
 
-  // const handleDownload = () => {
-  //   if (document?.file_url) {
-  //     window.open(document.file_url, "_blank");
-  //   } else {
-  //     console.log("Generating PDF for document:", document?.name);
-  //   }
-  // };
-
   const handleShare = async () => {
     const shareLink = `${window.location.origin}/document/${document?.id}`;
     try {
       await navigator.clipboard.writeText(shareLink);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000); // Hide notification after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
       console.log("Document link copied to clipboard");
     } catch (err) {
       console.error("Failed to copy link:", err);
@@ -243,21 +467,21 @@ const handleDownloadPdf = async () => {
                 )}
               </Button>
               <Button
-  variant="outline"
-  size="sm"
-  onClick={handleDownloadPdf}
-  disabled={isGeneratingPdf}
-  className="md:min-w-auto min-w-[120px]"
->
-  {isGeneratingPdf ? (
-    <Loader2 className="h-4 w-4 md:mr-2 animate-spin" />
-  ) : (
-    <ExternalLink className="h-4 w-4 md:mr-2" />
-  )}
-  <span className="hidden md:inline">
-    {isGeneratingPdf ? "Генерация PDF..." : (document.file_url ? "Открыть документ" : "Скачать PDF")}
-  </span>
-</Button>
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPdf}
+                disabled={isGeneratingPdf}
+                className="md:min-w-auto min-w-[120px]"
+              >
+                {isGeneratingPdf ? (
+                  <Loader2 className="h-4 w-4 md:mr-2 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-4 w-4 md:mr-2" />
+                )}
+                <span className="hidden md:inline">
+                  {isGeneratingPdf ? "Генерация PDF..." : (document.file_url ? "Открыть документ" : "Скачать PDF")}
+                </span>
+              </Button>
             </div>
             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
               <span className="text-sm font-medium text-gray-700">Д</span>
@@ -294,9 +518,7 @@ const handleDownloadPdf = async () => {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Создан</p>
                     <p className="text-gray-900">
-                      {new Date(document.created_at).toLocaleDateString(
-                        "ru-RU"
-                      )}
+                      {new Date(document.created_at).toLocaleDateString("ru-RU")}
                     </p>
                   </div>
                 </div>
@@ -313,9 +535,7 @@ const handleDownloadPdf = async () => {
                         Подписан
                       </p>
                       <p className="text-gray-900">
-                        {new Date(document.signed_at).toLocaleDateString(
-                          "ru-RU"
-                        )}
+                        {new Date(document.signed_at).toLocaleDateString("ru-RU")}
                       </p>
                     </div>
                   </div>
@@ -379,9 +599,13 @@ const handleDownloadPdf = async () => {
               )}
 
               <div className="flex justify-center gap-4 md:flex-row flex-col">
-                <Button onClick={handleDownloadPdf}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Открыть документ
+                <Button onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
+                  {isGeneratingPdf ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                  )}
+                  {isGeneratingPdf ? "Генерация..." : "Открыть документ"}
                 </Button>
                 <Button variant="outline" onClick={handleShare}>
                   {copied ? (
@@ -417,9 +641,13 @@ const handleDownloadPdf = async () => {
                 Документ "{document?.name}" готов для просмотра
               </p>
               <div className="flex justify-center gap-4">
-                <Button onClick={handleDownloadPdf}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Открыть документ
+                <Button onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
+                  {isGeneratingPdf ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                  )}
+                  {isGeneratingPdf ? "Генерация PDF..." : "Скачать PDF"}
                 </Button>
                 <Button variant="outline" onClick={handleShare}>
                   {copied ? (

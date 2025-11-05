@@ -69,6 +69,7 @@ export function SendForSigningDialog({
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [error, setError] = useState("");
   const [pdfPreview, setPdfPreview] = useState<string | null>(null);
+  const [pdfSize, setPdfSize] = useState<number>(0);
   
   const contractPreviewRef = useRef<HTMLDivElement>(null);
 
@@ -114,6 +115,7 @@ export function SendForSigningDialog({
     };
   };
 
+  // Основная функция генерации PDF с агрессивной оптимизацией
   const handleGeneratePDF = async () => {
     if (!name.trim() || !validateName(name)) {
       setError("Укажите корректное ФИО клиента");
@@ -139,115 +141,235 @@ export function SendForSigningDialog({
         throw new Error("Не удалось загрузить preview контракта");
       }
 
-      console.log("Starting PDF generation from ContractPreview...");
+      console.log("Starting ultra-optimized PDF generation...");
 
       // Даем время на полный рендеринг компонента
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Создаем временный контейнер для рендеринга с фиксированной шириной A4
+      // Создаем временный контейнер с минимальными настройками
       const tempContainer = document.createElement('div');
       tempContainer.style.position = 'fixed';
       tempContainer.style.left = '0';
       tempContainer.style.top = '0';
-      tempContainer.style.width = '794px'; // A4 width in pixels at 96 DPI
+      tempContainer.style.width = '400px'; // Сильно уменьшаем ширину
+      tempContainer.style.maxWidth = '400px';
       tempContainer.style.zIndex = '-1000';
       tempContainer.style.opacity = '0';
       tempContainer.style.pointerEvents = 'none';
+      tempContainer.style.backgroundColor = '#ffffff';
+      tempContainer.style.padding = '0';
+      tempContainer.style.margin = '0';
+      tempContainer.style.boxSizing = 'border-box';
+      tempContainer.style.overflow = 'hidden';
       
-      // Клонируем элемент для изоляции
+      // Клонируем элемент и применяем агрессивные оптимизации
       const clone = element.cloneNode(true) as HTMLElement;
+      
+      // Минималистичные стили
+      clone.style.width = '100%';
+      clone.style.maxWidth = '100%';
+      clone.style.margin = '0';
+      clone.style.padding = '0';
+      clone.style.boxSizing = 'border-box';
+      clone.style.backgroundColor = '#ffffff';
+      clone.style.transform = 'none';
+      clone.style.position = 'static';
+      clone.style.fontSize = '12px'; // Уменьшаем размер шрифта
+      
+      // Агрессивная оптимизация всех элементов
+      const allElements = clone.querySelectorAll('*');
+      allElements.forEach(el => {
+        const element = el as HTMLElement;
+        
+        // Убираем все визуальные эффекты
+        element.style.boxShadow = 'none';
+        element.style.textShadow = 'none';
+        element.style.borderRadius = '0';
+        element.style.backgroundImage = 'none';
+        element.style.gradient = 'none';
+        
+        // Уменьшаем отступы и границы
+        element.style.padding = '2px';
+        element.style.margin = '1px';
+        element.style.border = '1px solid #000';
+        
+        // Оптимизируем текст
+        element.style.lineHeight = '1.2';
+        element.style.letterSpacing = '0';
+        
+        // Убираем анимации и трансформации
+        element.style.transition = 'none';
+        element.style.animation = 'none';
+        element.style.transform = 'none';
+      });
+
+      // Оптимизируем карточки
+      const cards = clone.querySelectorAll('.max-w-4xl, [class*="max-w-"], .card, [class*="card"]');
+      cards.forEach(card => {
+        const cardElement = card as HTMLElement;
+        cardElement.style.maxWidth = '100%';
+        cardElement.style.width = '100%';
+        cardElement.style.margin = '0';
+        cardElement.style.padding = '5px';
+        cardElement.style.boxSizing = 'border-box';
+        cardElement.style.border = '1px solid #ccc';
+      });
+
+      // Оптимизируем контент карточек
+      const cardContents = clone.querySelectorAll('[class*="p-"], .card-content, [class*="content"]');
+      cardContents.forEach(content => {
+        const contentElement = content as HTMLElement;
+        contentElement.style.padding = '5px';
+        contentElement.style.boxSizing = 'border-box';
+        contentElement.style.margin = '0';
+      });
+
       tempContainer.appendChild(clone);
       document.body.appendChild(tempContainer);
 
       try {
-        // Получаем высоту содержимого для расчета количества страниц
+        // Ждем применения стилей
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Получаем размеры контента
+        const contentWidth = clone.scrollWidth;
         const contentHeight = clone.scrollHeight;
-        const pageHeight = 1122; // A4 height in pixels at 96 DPI
         
-        console.log(`Content height: ${contentHeight}px, Page height: ${pageHeight}px`);
-        
-        // Используем dom-to-image для генерации PNG каждой страницы
+        console.log(`Optimized content dimensions: ${contentWidth}x${contentHeight}`);
+
+        // Генерируем JPEG с очень низким качеством
+        const jpegDataUrl = await domtoimage.toJpeg(clone, {
+          quality: 0.3, // Очень низкое качество для максимального сжатия
+          bgcolor: '#ffffff',
+          width: contentWidth,
+          height: contentHeight,
+          style: {
+            transform: 'none',
+            margin: '0',
+            padding: '0',
+            left: '0',
+            top: '0'
+          },
+          filter: (node) => {
+            // Фильтруем ненужные элементы
+            if (node instanceof Element) {
+              const tagName = node.tagName.toLowerCase();
+              // Можно исключить определенные элементы если нужно
+              return true;
+            }
+            return true;
+          }
+        });
+
+        console.log("Ultra-compressed JPEG generated, creating PDF...");
+
+        // Создаем PDF с минимальными настройками
         const pdf = new jsPDF({
           orientation: "portrait",
-          unit: "px",
+          unit: "mm",
           format: "a4",
         });
 
-        const totalPages = Math.ceil(contentHeight / pageHeight);
-        console.log(`Total pages needed: ${totalPages}`);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
 
-        for (let pageNum = 0; pageNum < totalPages; pageNum++) {
-          if (pageNum > 0) {
-            pdf.addPage();
-          }
-
-          // Вычисляем область видимости для текущей страницы
-          const clipY = pageNum * pageHeight;
-          const clipHeight = Math.min(pageHeight, contentHeight - clipY);
-
-          console.log(`Generating page ${pageNum + 1}, clipY: ${clipY}, clipHeight: ${clipHeight}`);
-
-          // Генерируем PNG для текущей страницы
-          const pngDataUrl = await domtoimage.toPng(clone, {
-            quality: 1,
-            bgcolor: '#ffffff',
-            width: 794,
-            height: contentHeight,
-            style: {
-              transform: `translateY(-${clipY}px)`,
-              transformOrigin: 'top left'
-            }
-          });
-
-          // Добавляем изображение в PDF
-          const imgProps = pdf.getImageProperties(pngDataUrl);
-          const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pdfHeight = pdf.internal.pageSize.getHeight();
-
-          // Рассчитываем размеры для вставки в PDF
-          const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
-          const imgWidth = imgProps.width * ratio;
-          const imgHeight = imgProps.height * ratio;
-
-          // Вычисляем смещение для обрезки
-          const visibleHeightRatio = clipHeight / contentHeight;
-          const displayHeight = imgHeight * visibleHeightRatio;
-
-          pdf.addImage(
-            pngDataUrl, 
-            'PNG', 
-            0, 
-            0, 
-            imgWidth, 
-            displayHeight,
-            null,
-            'FAST'
-          );
-        }
+        // Минимальные поля
+        const margin = 5;
+        const contentPdfWidth = pdfWidth - (2 * margin);
         
-        // Генерируем PDF как Blob
-        const pdfBlob = pdf.output('blob');
+        const img = new Image();
+        img.src = jpegDataUrl;
         
-        // Конвертируем Blob в base64 data URL
-        const pdfBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            console.log("PDF data URL generated successfully");
-            resolve(result);
-          };
-          reader.onerror = () => reject(new Error("Failed to read PDF blob"));
-          reader.readAsDataURL(pdfBlob);
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          setTimeout(() => reject(new Error("Image load timeout")), 15000);
         });
 
-        // Проверяем, что это действительно PDF data URL
-        if (!pdfBase64.startsWith("data:application/pdf")) {
-          console.error("Generated data URL is not a PDF:", pdfBase64.substring(0, 100));
-          throw new Error("Сгенерированный файл имеет неверный формат");
+        const imgWidth = img.width;
+        const imgHeight = img.height;
+
+        // Рассчитываем соотношение
+        const ratio = contentPdfWidth / imgWidth;
+        const scaledHeight = imgHeight * ratio;
+
+        console.log(`PDF dimensions: ${pdfWidth}x${pdfHeight}mm, Scaled height: ${scaledHeight}mm`);
+
+        // Простая разбивка на страницы
+        let currentPage = 0;
+        let position = margin;
+        const pageContentHeight = pdfHeight - (2 * margin);
+        
+        while (position < (scaledHeight + margin)) {
+          if (currentPage > 0) {
+            pdf.addPage();
+          }
+          
+          const remainingHeight = scaledHeight - (position - margin);
+          const pageHeight = Math.min(pageContentHeight, remainingHeight);
+          
+          // Создаем canvas для обрезки
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          const srcY = ((position - margin) / scaledHeight) * imgHeight;
+          const srcHeight = (pageHeight / scaledHeight) * imgHeight;
+          
+          canvas.width = imgWidth;
+          canvas.height = srcHeight;
+          
+          if (ctx) {
+            ctx.drawImage(
+              img,
+              0, srcY, imgWidth, srcHeight,
+              0, 0, imgWidth, srcHeight
+            );
+            
+            const pageImageData = canvas.toDataURL('image/jpeg', 0.3);
+            
+            pdf.addImage(
+              pageImageData,
+              'JPEG',
+              margin,
+              margin,
+              contentPdfWidth,
+              pageHeight
+            );
+          }
+          
+          console.log(`Added page ${currentPage + 1}`);
+          
+          position += pageContentHeight;
+          currentPage++;
         }
 
-        setPdfPreview(pdfBase64);
-        console.log("Multi-page PDF successfully generated");
+        // Получаем PDF как Blob и проверяем размер
+        const pdfBlob = pdf.output('blob');
+        const sizeMB = pdfBlob.size / 1024 / 1024;
+        setPdfSize(sizeMB);
+        
+        console.log(`Generated PDF size: ${sizeMB.toFixed(2)} MB`);
+
+        // Проверяем размер файла
+        if (sizeMB > 8) { // 8MB с запасом до 10MB
+          console.warn("PDF still too large, trying alternative approach...");
+          // Пробуем альтернативный метод с еще большей компрессией
+          const alternativePdfBlob = await generateAlternativePDF(element);
+          const alternativeSizeMB = alternativePdfBlob.size / 1024 / 1024;
+          
+          if (alternativeSizeMB > 8) {
+            throw new Error(`PDF_SIZE_TOO_LARGE: ${alternativeSizeMB.toFixed(2)}MB`);
+          }
+          
+          const pdfBase64 = await blobToBase64(alternativePdfBlob);
+          setPdfPreview(pdfBase64);
+          setPdfSize(alternativeSizeMB);
+        } else {
+          const pdfBase64 = await blobToBase64(pdfBlob);
+          setPdfPreview(pdfBase64);
+        }
+
+        console.log("Ultra-optimized PDF successfully generated");
 
       } finally {
         // Всегда удаляем временный контейнер
@@ -258,151 +380,68 @@ export function SendForSigningDialog({
 
     } catch (error) {
       console.error("PDF generation error:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Ошибка при генерации PDF документа. Попробуйте еще раз."
-      );
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  };
-
-  // Альтернативная упрощенная версия для большей надежности
-  const handleGeneratePDFAlternative = async () => {
-    if (!name.trim() || !validateName(name)) {
-      setError("Укажите корректное ФИО клиента");
-      return;
-    }
-
-    setIsGeneratingPDF(true);
-    setError("");
-
-    try {
-      const element = contractPreviewRef.current;
-      if (!element) {
-        throw new Error("Не удалось загрузить preview контракта");
-      }
-
-      console.log("Starting alternative PDF generation...");
-
-      // Даем время на полный рендеринг компонента
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Создаем временный контейнер
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'fixed';
-      tempContainer.style.left = '0';
-      tempContainer.style.top = '0';
-      tempContainer.style.width = '794px';
-      tempContainer.style.zIndex = '-1000';
-      tempContainer.style.opacity = '0';
       
-      const clone = element.cloneNode(true) as HTMLElement;
-      tempContainer.appendChild(clone);
-      document.body.appendChild(tempContainer);
-
-      try {
-        // Генерируем одно большое изображение
-        const pngDataUrl = await domtoimage.toPng(clone, {
-          quality: 0.9,
-          bgcolor: '#ffffff',
-        });
-
-        // Создаем PDF и разбиваем на страницы
-        const pdf = new jsPDF({
-          orientation: "portrait",
-          unit: "mm",
-          format: "a4",
-        });
-
-        const img = new Image();
-        img.src = pngDataUrl;
-        
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-        });
-
-        const imgWidth = img.width;
-        const imgHeight = img.height;
-
-        // Рассчитываем соотношение для A4
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        // Масштабируем по ширине
-        const ratio = pdfWidth / imgWidth;
-        const scaledHeight = imgHeight * ratio;
-
-        // Если контент помещается на одну страницу
-        if (scaledHeight <= pdfHeight) {
-          pdf.addImage(pngDataUrl, 'PNG', 0, 0, pdfWidth, scaledHeight);
-        } else {
-          // Разбиваем на несколько страниц
-          let position = 0;
-          let pageNumber = 1;
-          
-          while (position < scaledHeight) {
-            if (pageNumber > 1) {
-              pdf.addPage();
-            }
-            
-            // Вычисляем видимую часть для текущей страницы
-            const pageImgHeight = Math.min(pdfHeight, scaledHeight - position);
-            
-            pdf.addImage(
-              pngDataUrl,
-              'PNG',
-              0, 
-              -position, 
-              pdfWidth, 
-              scaledHeight
-            );
-            
-            position += pdfHeight;
-            pageNumber++;
-          }
-        }
-
-        const pdfBlob = pdf.output('blob');
-        const pdfBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(pdfBlob);
-        });
-
-        if (!pdfBase64.startsWith("data:application/pdf")) {
-          throw new Error("Сгенерированный файл имеет неверный формат");
-        }
-
-        setPdfPreview(pdfBase64);
-        console.log("Alternative PDF generation completed");
-
-      } finally {
-        if (document.body.contains(tempContainer)) {
-          document.body.removeChild(tempContainer);
-        }
+      if (error instanceof Error && error.message.startsWith("PDF_SIZE_TOO_LARGE")) {
+        const sizeMatch = error.message.match(/(\d+\.\d+)MB/);
+        const size = sizeMatch ? sizeMatch[1] : "неизвестно";
+        setError(`Документ слишком большой (${size} MB). Максимальный размер для отправки - 10 MB. Пожалуйста, сократите содержимое документа или разбейте его на несколько частей.`);
+      } else {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Ошибка при генерации PDF документа. Попробуйте еще раз."
+        );
       }
-
-    } catch (error) {
-      console.error("Alternative PDF generation error:", error);
-      // Пробуем самую простую версию как запасной вариант
-      await handleGeneratePDFSimple();
     } finally {
       setIsGeneratingPDF(false);
     }
   };
 
-  // Самая простая версия как запасной вариант
-  const handleGeneratePDFSimple = async () => {
-    try {
-      const element = contractPreviewRef.current;
-      if (!element) return;
+  // Альтернативный метод генерации PDF для очень больших документов
+  const generateAlternativePDF = async (element: HTMLElement): Promise<Blob> => {
+    console.log("Using alternative PDF generation method...");
+    
+    // Создаем максимально упрощенный контейнер
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'fixed';
+    tempContainer.style.left = '0';
+    tempContainer.style.top = '0';
+    tempContainer.style.width = '300px';
+    tempContainer.style.maxWidth = '300px';
+    tempContainer.style.zIndex = '-1000';
+    tempContainer.style.opacity = '0';
+    tempContainer.style.backgroundColor = '#ffffff';
+    
+    const clone = element.cloneNode(true) as HTMLElement;
+    
+    // Максимальная оптимизация
+    clone.style.width = '100%';
+    clone.style.maxWidth = '100%';
+    clone.style.margin = '0';
+    clone.style.padding = '0';
+    clone.style.fontSize = '10px';
+    
+    // Убираем все лишнее
+    const allElements = clone.querySelectorAll('*');
+    allElements.forEach(el => {
+      const element = el as HTMLElement;
+      element.style.boxShadow = 'none';
+      element.style.borderRadius = '0';
+      element.style.backgroundImage = 'none';
+      element.style.padding = '1px';
+      element.style.margin = '0';
+      element.style.border = 'none';
+    });
 
-      const pngDataUrl = await domtoimage.toPng(element, {
-        quality: 0.8,
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Генерируем с минимальным качеством
+      const jpegDataUrl = await domtoimage.toJpeg(clone, {
+        quality: 0.2, // Минимальное качество
         bgcolor: '#ffffff',
       });
 
@@ -412,55 +451,57 @@ export function SendForSigningDialog({
         format: "a4",
       });
 
-      const imgProps = pdf.getImageProperties(pngDataUrl);
+      const imgProps = pdf.getImageProperties(jpegDataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
-      const imgWidth = imgProps.width * ratio;
-      let imgHeight = imgProps.height * ratio;
+      const margin = 3; // Минимальные поля
+      const contentWidth = pdfWidth - (2 * margin);
+      
+      const ratio = contentWidth / imgProps.width;
+      const imgWidth = contentWidth;
+      const imgHeight = imgProps.height * ratio;
 
-      // Если изображение слишком высокое, создаем несколько страниц
+      // Простая разбивка на страницы
       let heightLeft = imgHeight;
-      let position = 0;
+      let position = margin;
       let pageNumber = 1;
 
-      // Первая страница
-      pdf.addImage(pngDataUrl, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
+      pdf.addImage(jpegDataUrl, 'JPEG', margin, position, imgWidth, imgHeight);
+      heightLeft -= (pdfHeight - (2 * margin));
 
-      // Добавляем дополнительные страницы если нужно
       while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
+        position = margin - (imgHeight - heightLeft);
         pdf.addPage();
-        pdf.addImage(pngDataUrl, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
+        pdf.addImage(jpegDataUrl, 'JPEG', margin, position, imgWidth, imgHeight);
+        heightLeft -= (pdfHeight - (2 * margin));
         pageNumber++;
       }
 
-      const pdfBlob = pdf.output('blob');
-      const pdfBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(pdfBlob);
-      });
-
-      setPdfPreview(pdfBase64);
-    } catch (error) {
-      console.error("Simple PDF generation failed:", error);
-      throw error;
+      return pdf.output('blob');
+    } finally {
+      if (document.body.contains(tempContainer)) {
+        document.body.removeChild(tempContainer);
+      }
     }
   };
 
-  // Основная функция генерации с fallback
-  const handleGeneratePDFMain = async () => {
-    try {
-      await handleGeneratePDFAlternative();
-    } catch (error) {
-      console.error("All PDF generation methods failed, using simple method");
-      await handleGeneratePDFSimple();
-    }
+  // Вспомогательная функция для конвертации Blob в base64
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        if (!result.startsWith("data:application/pdf")) {
+          console.error("Generated data URL is not a PDF:", result.substring(0, 100));
+          reject(new Error("Сгенерированный файл имеет неверный формат"));
+        } else {
+          resolve(result);
+        }
+      };
+      reader.onerror = () => reject(new Error("Failed to read PDF blob"));
+      reader.readAsDataURL(blob);
+    });
   };
 
   const handleDownloadPDF = () => {
@@ -477,6 +518,12 @@ export function SendForSigningDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Проверяем размер файла перед отправкой
+    if (pdfSize > 10) {
+      setError(`Размер файла (${pdfSize.toFixed(2)} MB) превышает максимально допустимый размер 10 MB. Пожалуйста, сгенерируйте документ заново или сократите его содержимое.`);
+      return;
+    }
 
     if (!name.trim() || !validateName(name)) {
       setError("Укажите корректное ФИО клиента");
@@ -519,6 +566,7 @@ export function SendForSigningDialog({
       setOpen(false);
       setError("");
       setPdfPreview(null);
+      setPdfSize(0);
     } catch (error) {
       console.error("Error sending for signing:", error);
       setError(
@@ -623,7 +671,7 @@ export function SendForSigningDialog({
                   type="tel"
                   placeholder="+7 (999) 123-45-67"
                   value={phone}
-                  onChange={(handlePhoneChange)}
+                  onChange={handlePhoneChange}
                   className={`pl-10 ${
                     !validatePhone(phone) && phone ? "border-orange-500" : ""
                   }`}
@@ -661,7 +709,7 @@ export function SendForSigningDialog({
               position: 'fixed', 
               left: '-9999px', 
               top: '-9999px', 
-              width: '794px',
+              width: '400px',
               zIndex: -1000 
             }}>
               <ContractPreview
@@ -680,7 +728,7 @@ export function SendForSigningDialog({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={handleGeneratePDFMain}
+                  onClick={handleGeneratePDF}
                   disabled={isGeneratingPDF}
                 >
                   {isGeneratingPDF ? (
@@ -702,9 +750,21 @@ export function SendForSigningDialog({
                   <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-green-600" />
-                      <span className="text-green-800 font-medium">
-                        PDF документ готов
-                      </span>
+                      <div>
+                        <span className="text-green-800 font-medium">
+                          PDF документ готов
+                        </span>
+                        {pdfSize > 0 && (
+                          <p className="text-xs text-green-600">
+                            Размер файла: {pdfSize.toFixed(2)} MB
+                            {pdfSize > 8 && (
+                              <span className="text-orange-600 ml-1">
+                                (близко к лимиту 10 MB)
+                              </span>
+                            )}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <Button
                       type="button"
@@ -741,6 +801,10 @@ export function SendForSigningDialog({
                     <p>• Сумма: {Number(contractData.totalAmount).toLocaleString("ru-RU")} руб.</p>
                     <p>• Аванс: {Number(contractData.advancePayment).toLocaleString("ru-RU")} руб.</p>
                   </div>
+                  <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded border border-orange-200">
+                    <strong>Внимание:</strong> Используется агрессивное сжатие для уменьшения размера файла.
+                    Качество изображения может быть снижено для соответствия лимиту 10 MB.
+                  </div>
                 </div>
               )}
 
@@ -749,7 +813,7 @@ export function SendForSigningDialog({
                   <div className="flex flex-col items-center gap-2">
                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-600" />
                     <p className="text-sm text-muted-foreground">Генерация PDF документа...</p>
-                    <p className="text-xs text-muted-foreground">Это может занять несколько секунд</p>
+                    <p className="text-xs text-muted-foreground">Применяется агрессивное сжатие для уменьшения размера</p>
                   </div>
                 </div>
               )}
@@ -766,6 +830,9 @@ export function SendForSigningDialog({
                 <li>4. Клиент сможет подписать документ онлайн</li>
                 <li>5. После подписания статус обновится автоматически</li>
               </ol>
+              <div className="mt-2 text-xs text-orange-600">
+                <strong>Ограничение:</strong> Максимальный размер файла - 10 MB
+              </div>
             </div>
           </div>
 
@@ -776,11 +843,16 @@ export function SendForSigningDialog({
               onClick={() => {
                 setOpen(false);
                 setPdfPreview(null);
+                setPdfSize(0);
               }}
             >
               Отмена
             </Button>
-            <Button type="submit" disabled={isLoading || !pdfPreview}>
+            <Button 
+              type="submit" 
+              disabled={isLoading || !pdfPreview || pdfSize > 10}
+              title={pdfSize > 10 ? "Размер файла превышает 10 MB" : ""}
+            >
               {isLoading ? (
                 <>
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
