@@ -94,29 +94,29 @@ function getDocumentTypeLabel(type: string) {
 }
 
 /** Маппинг статусов Подпислона в локальные */
-function mapPodpislonToLocalStatus(
-  status: string | undefined
-): "pending_signature" | "signed" | "draft" | "unknown" {
-  const s = String(status || "").toLowerCase();
+// function mapPodpislonToLocalStatus(
+//   status: string | undefined
+// ): "pending_signature" | "signed" | "draft" | "unknown" {
+//   const s = String(status || "").toLowerCase();
 
-  // Статусы Podpislon
-  if (s === "30" || s === "signed" || s === "подписан") {
-    return "signed";
-  }
-  if (
-    s === "10" ||
-    s === "15" ||
-    s === "pending" ||
-    s === "создан" ||
-    s === "отправлен"
-  ) {
-    return "pending_signature";
-  }
-  if (s === "draft" || s === "черновик") {
-    return "draft";
-  }
-  return "unknown";
-}
+//   // Статусы Podpislon
+//   if (s === "30" || s === "signed" || s === "подписан") {
+//     return "signed";
+//   }
+//   if (
+//     s === "10" ||
+//     s === "15" ||
+//     s === "pending" ||
+//     s === "создан" ||
+//     s === "отправлен"
+//   ) {
+//     return "pending_signature";
+//   }
+//   if (s === "draft" || s === "черновик") {
+//     return "draft";
+//   }
+//   return "unknown";
+// }
 
 /* ============================================================ */
 
@@ -168,6 +168,24 @@ export default function ProjectPage() {
       setError("ID проекта не указан");
     }
   }, [projectId]);
+
+  // Функция для перезагрузки документов
+  const reloadDocuments = async () => {
+  try {
+    console.log("[reloadDocuments] Reloading documents for project:", projectId);
+    const docs = await getProjectDocuments(projectId);
+    console.log("[reloadDocuments] Loaded documents:", docs.length);
+    
+    // Проверяем статусы загруженных документов
+    docs.forEach(doc => {
+      console.log(`[reloadDocuments] Document ${doc.id}: ${doc.name} - Status: ${doc.status}, Podpislon ID: ${doc.podpislon_id}`);
+    });
+    
+    setDocuments(docs);
+  } catch (error) {
+    console.error("❌ [reloadDocuments] Error:", error);
+  }
+};
 
   /* -------- создание черновика договора (старый флоу) -------- */
   const handleCreateContract = async (contractData: any) => {
@@ -275,48 +293,11 @@ export default function ProjectPage() {
         );
       }
 
-      // Сохраняем ВСЕ данные в БД
-      const updatedDoc = await updateDocumentStatus(
-        data.document_id,
-        "pending_signature",
-        {
-          podpislon_id: result.signing_id || result.contract_id,
-          sign_url: result.signing_url || result.link,
-          status_message: result.message || "Документ отправлен на подписание",
-        }
-      );
+      console.log("[handleSendForSigning] Podpislon response:", result);
 
-      if (updatedDoc) {
-        // Используем полный объект из БД для обновления UI
-        setDocuments((prev) =>
-          prev.map((d) =>
-            d.id === data.document_id
-              ? {
-                  ...updatedDoc, // Важно: используем объект из БД
-                  status: "pending_signature",
-                }
-              : d
-          )
-        );
-      } else {
-        console.error(
-          "[handleSendForSigning] Database update failed, updating UI only"
-        );
-        // Fallback: обновляем UI даже если БД не обновилась
-        setDocuments((prev) =>
-          prev.map((d) =>
-            d.id === data.document_id
-              ? {
-                  ...d,
-                  status: "pending_signature",
-                  podpislon_id: result.signing_id || result.contract_id,
-                  sign_url: result.signing_url || result.link,
-                  updated_at: new Date().toISOString(),
-                }
-              : d
-          )
-        );
-      }
+      console.log("[handleSendForSigning] Reloading documents after successful sending");
+    await reloadDocuments();
+
 
       alert(
         `✅ ${
@@ -333,6 +314,12 @@ export default function ProjectPage() {
       alert(`❌ ${errorMessage}`);
       throw error;
     }
+  };
+
+  // Функция для обновления статуса документа после успешной отправки
+  const handleSendForSigningSuccess = () => {
+    console.log("[handleSendForSigningSuccess] Reloading documents...");
+    reloadDocuments();
   };
 
   useEffect(() => {
@@ -374,151 +361,167 @@ export default function ProjectPage() {
   };
 
   /* -------- автопуллинг статусов из Подпислона -------- */
-  /* -------- автопуллинг статусов из Подпислона -------- */
   const pollingList = useMemo(
-    () => documents.filter((d) => d.podpislon_id && d.status !== "signed"),
-    [documents]
+  () => documents.filter((d) => d.podpislon_id && d.status !== "signed"),
+  [documents]
+);
+
+useEffect(() => {
+  const pollingList = documents.filter((d) => 
+    d.podpislon_id && 
+    d.status !== "signed" // Опрашиваем только неподписанные документы
   );
 
-  useEffect(() => {
-    if (pollingList.length === 0) return;
-    let stopped = false;
-    const INTERVAL = 15000; // Увеличим интервал до 15 секунд
+  if (pollingList.length === 0) {
+    console.log("[Status Poll] No documents to poll");
+    return;
+  }
+  
+  let stopped = false;
+  const INTERVAL = 30000; // 30 секунд
 
-    async function tick() {
+  async function checkDocumentStatus(doc: DocumentWithIntegration) {
+    try {
+      const podpislonId = String(doc.podpislon_id);
+      console.log(`[Status Poll] Checking status for document ${doc.id}, podpislon_id: ${podpislonId}, current status: ${doc.status}`);
+
+      const res = await fetch(
+        `/api/podpislon/status/${encodeURIComponent(podpislonId)}`,
+        {
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      }
+
+      const data = await res.json();
+      console.log(`[Status Poll] Status for document ${doc.id}:`, {
+        current: doc.status,
+        new: data.status,
+        signedAt: data.signedAt
+      });
+
+      return {
+        id: doc.id,
+        podpislonId: podpislonId,
+        status: data?.status || "unknown",
+        signedAt: data?.signedAt || null,
+        statusText: data?.statusText || "",
+      };
+    } catch (error) {
+      console.error(`[Status Poll] Error checking document ${doc.id}:`, error);
+      return null;
+    }
+  }
+
+  async function tick() {
+    if (stopped) return;
+
+    try {
+      console.log(
+        "[Status Poll] Checking status for documents:",
+        pollingList.map((d) => ({
+          id: d.id,
+          name: d.name,
+          podpislon_id: d.podpislon_id,
+          current_status: d.status,
+        }))
+      );
+
+      const results = await Promise.allSettled(
+        pollingList.map(checkDocumentStatus)
+      );
+
       if (stopped) return;
 
-      try {
-        console.log(
-          "[Status Poll] Checking status for documents:",
-          pollingList.map((d) => ({
-            id: d.id,
-            podpislon_id: d.podpislon_id,
-            current_status: d.status,
-          }))
-        );
+      const updates: Array<{
+        id: string;
+        podpislonId: string;
+        newStatus: "signed" | "pending_signature" | "draft";
+        signedAt?: string | null;
+        statusText?: string;
+      }> = [];
 
-        const results = await Promise.allSettled(
-          pollingList.map(async (doc) => {
-            const extId = String(doc.podpislon_id);
-
-            const res = await fetch(
-              `/api/podpislon/status/${encodeURIComponent(extId)}`,
-              {
-                cache: "no-store",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-              }
-            );
-
-            if (!res.ok) {
-              throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value) {
+          const { id, podpislonId, status, signedAt, statusText } = result.value;
+          
+          // Обновляем только если статус изменился и он валидный
+          if (status !== "unknown") {
+            const currentDoc = documents.find(d => d.id === id);
+            if (currentDoc && currentDoc.status !== status) {
+              updates.push({
+                id,
+                podpislonId,
+                newStatus: status as "signed" | "pending_signature" | "draft",
+                signedAt: status === "signed" ? (signedAt || new Date().toISOString()) : undefined,
+                statusText,
+              });
+              console.log(`[Status Poll] Document ${id} status changed: ${currentDoc.status} -> ${status}`);
             }
+          }
+        }
+      }
 
-            const data = await res.json();
-
-            return {
-              id: doc.id,
-              status: data?.status || "unknown",
-              signedAt: data?.signedAt || null,
-              statusText: data?.statusText || "",
+      if (updates.length > 0) {
+        console.log(`[Status Poll] Applying ${updates.length} status updates`);
+        
+        // Обновляем UI - БД уже обновлена через API статуса
+        setDocuments((prev) =>
+          prev.map((d) => {
+            const update = updates.find((u) => u.id === d.id);
+            if (!update) return d;
+            
+            const updatedDoc = {
+              ...d,
+              status: update.newStatus,
+              signed_at: update.newStatus === "signed" 
+                ? (update.signedAt || new Date().toISOString())
+                : d.signed_at,
+              updated_at: new Date().toISOString(),
             };
+            
+            console.log(`[Status Poll] Updated UI for document ${d.id}:`, {
+              from: d.status,
+              to: updatedDoc.status,
+              signed_at: updatedDoc.signed_at
+            });
+            
+            return updatedDoc;
           })
         );
 
-        if (stopped) return;
-
-        const updates: Array<{
-          id: string;
-          newStatus: "signed" | "pending_signature";
-          signedAt?: string | null;
-          statusText?: string;
-        }> = [];
-
-        for (const result of results) {
-          if (result.status === "fulfilled") {
-            const { id, status, signedAt, statusText } = result.value;
-            const localStatus = mapPodpislonToLocalStatus(status);
-
-            if (localStatus === "signed") {
-              updates.push({
-                id,
-                newStatus: "signed",
-                signedAt: signedAt,
-                statusText,
-              });
-            } else if (localStatus === "pending_signature") {
-              // Можно обновить на pending_signature, но обычно это уже установлено
-              console.log("[Status Poll] Document still pending:", id);
-            }
-          } else {
-            console.warn(
-              "[Status Poll] Failed to check status:",
-              result.reason
-            );
+        // Показываем уведомления о изменении статуса
+        updates.forEach(update => {
+          if (update.newStatus === "signed") {
+            console.log(`[Status Poll] 🎉 Document ${update.id} is now signed!`);
+            // Можно добавить toast-уведомление здесь
           }
-        }
-
-        if (updates.length > 0) {
-          // Сначала обновляем UI
-          setDocuments((prev) =>
-            prev.map((d) => {
-              const update = updates.find((u) => u.id === d.id);
-              if (!update) return d;
-              return {
-                ...d,
-                status: update.newStatus,
-                signed_at:
-                  update.newStatus === "signed"
-                    ? update.signedAt || new Date().toISOString()
-                    : d.signed_at,
-              };
-            })
-          );
-
-          // Затем сохраняем в БД
-          for (const update of updates) {
-            try {
-              console.log(
-                "[Status Poll] Saving to DB:",
-                update.id,
-                update.newStatus
-              );
-              await updateDocumentStatus(update.id, update.newStatus, {
-                signed_at:
-                  update.newStatus === "signed"
-                    ? update.signedAt || new Date().toISOString()
-                    : undefined,
-                status_message:
-                  update.statusText ||
-                  (update.newStatus === "signed"
-                    ? "Документ подписан"
-                    : "Статус обновлен"),
-              });
-            } catch (e) {
-              console.error(
-                "[Status Poll] Failed to update DB for document:",
-                update.id,
-                e
-              );
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("[Status-poll] Polling error:", e);
+        });
+      } else {
+        console.log("[Status Poll] No status updates needed");
       }
+    } catch (e) {
+      console.warn("[Status Poll] Polling error:", e);
     }
+  }
 
-    // Запускаем сразу и затем по интервалу
-    tick();
-    const intervalId = setInterval(tick, INTERVAL);
+  // Запускаем сразу и затем по интервалу
+  console.log(`[Status Poll] Starting polling for ${pollingList.length} documents`);
+  tick();
+  const intervalId = setInterval(tick, INTERVAL);
 
-    return () => {
-      stopped = true;
-      clearInterval(intervalId);
-    };
-  }, [pollingList]);
+  return () => {
+    console.log("[Status Poll] Stopping polling");
+    stopped = true;
+    clearInterval(intervalId);
+  };
+}, [documents]);
 
   /* ---------------- render ---------------- */
 
@@ -747,6 +750,7 @@ export default function ProjectPage() {
                             projectName={project.name}
                             documentContent={d.content}
                             onSendForSigning={handleSendForSigning}
+                            onSuccess={handleSendForSigningSuccess} // Добавляем callback успеха
                           />
                         )}
 

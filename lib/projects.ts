@@ -267,10 +267,12 @@ export async function updateDocumentStatus(
 
     if (additionalData?.podpislon_id) {
       updateData.podpislon_id = additionalData.podpislon_id;
+      console.log("[updateDocumentStatus] Setting podpislon_id:", additionalData.podpislon_id);
     }
 
     if (additionalData?.sign_url) {
       updateData.sign_url = additionalData.sign_url;
+      console.log("[updateDocumentStatus] Setting sign_url:", additionalData.sign_url);
     }
 
     if (additionalData?.status_message) {
@@ -281,6 +283,8 @@ export async function updateDocumentStatus(
       updateData.signed_at = additionalData.signed_at;
     }
 
+    console.log("[updateDocumentStatus] Final update data:", updateData);
+
     const { data, error } = await supabaseModule.supabase
       .from("documents")
       .update(updateData)
@@ -290,6 +294,12 @@ export async function updateDocumentStatus(
 
     if (error) {
       console.error("[updateDocumentStatus] Supabase error:", error);
+      console.error("[updateDocumentStatus] Error details:", {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message
+      });
       return null;
     }
 

@@ -563,6 +563,10 @@ export function SendForSigningDialog({
         },
         file_data: pdfPreview,
       });
+
+      if (onSuccess) {
+        onSuccess();
+      }
       setOpen(false);
       setError("");
       setPdfPreview(null);

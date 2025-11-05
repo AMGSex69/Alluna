@@ -1,4 +1,5 @@
 // /api/podpislon/send-for-signing/route.ts
+import { updateDocumentStatus } from "@/lib/projects";
 import { NextRequest, NextResponse } from "next/server";
 
 const API_MODE = process.env.PODPISLON_API_MODE || "auto";
@@ -239,6 +240,26 @@ async function realSendForSigning(body: any) {
     console.log("[Podpislon] Document created successfully:");
     console.log("[Podpislon] - Document ID:", documentId);
     console.log("[Podpislon] - Signing URL:", signingUrl);
+
+    if (data.result?.files?.[0]?.ID) {
+  const signingId = data.result.files[0].ID.toString();
+
+  const updateResult = await updateDocumentStatus(
+    document_id, 
+    'pending_signature', 
+    {
+      podpislon_id: signingId,
+      sign_url: signingUrl,
+      status_message: "Документ отправлен на подписание",
+    }
+  );
+  
+  console.log("[Podpislon] Database update result:", updateResult);
+  
+  if (!updateResult) {
+    console.error("[Podpislon] FAILED to update document status in database");
+  }
+}
 
     return {
       success: true,
